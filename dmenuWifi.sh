@@ -1,4 +1,8 @@
 #!/bin/bash
+# Add the following line to your sudoers file, change USER to your name:
+# USER ALL=NOPASSWD:/usr/bin/iwctl
+# USER ALL=NOPASSWD:/usr/sbin/iwlist
+# USER ALL=NOPASSWD:/usr/bin/systemctl restart iwd.service
 
 quit() {
    exit 0
@@ -8,17 +12,29 @@ notify() {
    notify-send -t 5000 "$1"
 }
 
-sudoWifi() {
-   sudo ~/.local/bin/wifiSudo.sh "$1" "$2" "$3"
-}
+
 getKnowen() {
-   sudoWifi "getKnowen"
+   sudo iwctl known-networks list | tail -n+5 | sed "s/^  //g;s/   .*$//g" | awk -F '\n' '{print "|||| " $1 " ^ 0 ^\t removeWifi " $1}' | sed "s/^||||  \^ 0 \^.*$//g"
 }
+
 getList() {
-   sudoWifi "getList"
+   sudo iwlist wlan0 scanning | grep ESSID | sed 's/^.*ESSID:\"//g;s/\"$//g' | awk -F '\n' '{print "|||| " $1 "\t^ 1 ^\tmainloop Wifi Password " $1}'
 }
+
+connectWifi() {
+   sudo iwctl --passphrase="$2" station wlan0 connect "$1"
+   dmenuWifi.sh
+}
+
+removeWifi() {
+   sudo iwctl known-networks "$1" forget 
+   dmenuWifi.sh
+}
+
 restartWifi() {
-   sudoWifi "restartWifi"
+   sudo systemctl restart iwd.service && notify-sed -t 5000 "Restarted Wifi" || notify-sed -t 5000 "|||| ERROR: Restarting Wifi failed,- check iwd.service"
+   dmenuWifi.sh
+
 }
 
 
@@ -72,7 +88,7 @@ progWifi() {
       C=$((C+1))
       CHOICES="$(getList)"
 
-      [[ $C = 8 ]] && CHOICES="Error rorrE ^ 1 ^ mainloop"
+      [[ $C = 8 ]] && CHOICES="|||| Error rorrE ^ 1 ^ mainloop"
 
       sleep 1
    done
